@@ -18,7 +18,7 @@ export function usePipeline(projectId) {
     queryKey: ['artifacts', projectId],
     queryFn: () => api.get(`/projects/${projectId}/artifacts`).then((r) => r.data.data),
     enabled: !!projectId,
-    refetchInterval: 3000,
+    refetchInterval: (data) => (project?.status === 'completed' ? false : 3000),
   });
 
   // SSE 실시간 에이전트 상태 수신

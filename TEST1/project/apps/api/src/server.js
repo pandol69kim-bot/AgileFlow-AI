@@ -4,6 +4,7 @@ import jwt from '@fastify/jwt';
 import cookie from '@fastify/cookie';
 import { projectRoutes } from './routes/projects/index.js';
 import { authRoutes } from './routes/auth/index.js';
+import { statusRoutes } from './routes/status/index.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 
 const app = Fastify({ logger: true });
@@ -23,6 +24,7 @@ app.setErrorHandler(errorHandler);
 
 await app.register(authRoutes, { prefix: '/api/v1/auth' });
 await app.register(projectRoutes, { prefix: '/api/v1/projects' });
+await app.register(statusRoutes, { prefix: '/api/v1/status' });
 
 const port = Number(process.env.PORT ?? 3001);
 await app.listen({ port, host: '0.0.0.0' });

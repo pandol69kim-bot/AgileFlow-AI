@@ -1,5 +1,76 @@
-{"level":30,"time":1776414432448,"pid":20100,"hostname":"PC200","reqId":"req-14","res":{"statusCode":200},"responseTime":4.6068999990820885,"msg":"request completed"}
-{"level":30,"time":1776414435463,"pid":20100,"hostname":"PC200","reqId":"req-15","req":{"method":"GET","url":"/api/v1/projects/5952199d-66bd-41d6-8a7b-dbfafab94f59/artifacts","hostname":"localhost:3001","remoteAddress":"127.0.0.1","remotePort":59530},"msg":"incoming request"}
-{"level":30,"time":1776414435468,"pid":20100,"hostname":"PC200","reqId":"req-15","res":{"statusCode":200},"responseTime":4.746700000017881,"msg":"request completed"}
-{"level":30,"time":1776414437226,"pid":20100,"hostname":"PC200","reqId":"req-16","req":{"method":"GET","url":"/api/v1/projects/5952199d-66bd-41d6-8a7b-dbfafab94f59","hostname":"localhost:3001","remoteAddress":"127.0.0.1","remotePort":59533},"msg":"incoming request"}
-{"level":30,"time":1776414437229,"pid":20100,"hostname":"PC200","reqId":"req-16","res":{"statusCode":200},"responseTime":2.9021000005304813,"msg":"request completed"}
+(venv) PS D:\AI-DATA\TEST1\project\apps\pipeline> python tests/test_step.py --step 1 --idea "드론 시뮬레이션 테스트  앱"
+
+=======================================================
+  STEP 1: 01_idea_analyst  [Haiku]
+=======================================================
+  실행 중... (LLM 호출, 수십 초 소요)
+Traceback (most recent call last):
+  File "D:\AI-DATA\TEST1\project\apps\pipeline\tests\test_step.py", line 175, in <module>
+    main()
+    ~~~~^^
+  File "D:\AI-DATA\TEST1\project\apps\pipeline\tests\test_step.py", line 169, in main
+    asyncio.run(run_single(args.step, args.idea))
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\codelab\AppData\Local\Python\pythoncore-3.14-64\Lib\asyncio\runners.py", line 204, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "C:\Users\codelab\AppData\Local\Python\pythoncore-3.14-64\Lib\asyncio\runners.py", line 127, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\codelab\AppData\Local\Python\pythoncore-3.14-64\Lib\asyncio\base_events.py", line 719, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "D:\AI-DATA\TEST1\project\apps\pipeline\tests\test_step.py", line 127, in run_single
+    result = await run_step(step, state)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\AI-DATA\TEST1\project\apps\pipeline\tests\test_step.py", line 72, in run_step
+    return await run_idea_analyst(state)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\AI-DATA\TEST1\project\apps\pipeline\agents\idea_analyst.py", line 23, in run_idea_analyst
+    response = await llm.ainvoke([HumanMessage(content=prompt)])
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\AI-DATA\TEST1\project\apps\pipeline\venv\Lib\site-packages\langchain_core\language_models\chat_models.py", line 295, in ainvoke
+    llm_result = await self.agenerate_prompt(
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<8 lines>...
+    )
+    ^
+  File "D:\AI-DATA\TEST1\project\apps\pipeline\venv\Lib\site-packages\langchain_core\language_models\chat_models.py", line 724, in agenerate_prompt
+    return await self.agenerate(
+           ^^^^^^^^^^^^^^^^^^^^^
+        prompt_messages, stop=stop, callbacks=callbacks, **kwargs
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\AI-DATA\TEST1\project\apps\pipeline\venv\Lib\site-packages\langchain_core\language_models\chat_models.py", line 684, in agenerate
+    raise exceptions[0]
+  File "D:\AI-DATA\TEST1\project\apps\pipeline\venv\Lib\site-packages\langchain_core\language_models\chat_models.py", line 883, in _agenerate_with_cache      
+    result = await self._agenerate(
+             ^^^^^^^^^^^^^^^^^^^^^^
+        messages, stop=stop, run_manager=run_manager, **kwargs
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\AI-DATA\TEST1\project\apps\pipeline\venv\Lib\site-packages\langchain_anthropic\chat_models.py", line 780, in _agenerate
+    data = await self._async_client.messages.create(**payload)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\AI-DATA\TEST1\project\apps\pipeline\venv\Lib\site-packages\anthropic\resources\messages.py", line 1864, in create
+    return await self._post(
+           ^^^^^^^^^^^^^^^^^
+    ...<24 lines>...
+    )
+    ^
+  File "D:\AI-DATA\TEST1\project\apps\pipeline\venv\Lib\site-packages\anthropic\_base_client.py", line 1826, in post
+    return await self.request(cast_to, opts, stream=stream, stream_cls=stream_cls)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\AI-DATA\TEST1\project\apps\pipeline\venv\Lib\site-packages\anthropic\_base_client.py", line 1519, in request
+    return await self._request(
+           ^^^^^^^^^^^^^^^^^^^^
+    ...<5 lines>...
+    )
+    ^
+  File "D:\AI-DATA\TEST1\project\apps\pipeline\venv\Lib\site-packages\anthropic\_base_client.py", line 1620, in _request
+    raise self._make_status_error_from_response(err.response) from None
+anthropic.AuthenticationError: Error code: 401 - {'type': 'error', 'error': {'type': 'authentication_error', 'message': 'invalid x-api-key'}, 'request_id': 'req_011Ca96wYyFFyeSJKcQ7Vwcp'}
+Failed to batch ingest runs: LangSmithError('Failed to POST https://api.smith.langchain.com/runs/batch in LangSmith API. HTTPError(\'403 Client Error: Forbidden for url: https://api.smith.langchain.com/runs/batch\', \'{"error":"Forbidden"}\\n\')')
+(venv) PS D:\AI-DATA\TEST1\project\apps\pipeline> 

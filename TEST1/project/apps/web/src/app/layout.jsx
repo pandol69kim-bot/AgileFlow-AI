@@ -15,6 +15,7 @@ export function AppLayout() {
         </Link>
         <nav className="flex items-center gap-6 text-sm text-slate-400">
           <Link to="/projects" className="hover:text-slate-200 transition-colors">Projects</Link>
+          <Link to="/status" className="hover:text-slate-200 transition-colors">Status</Link>
           {user && (
             <button
               type="button"

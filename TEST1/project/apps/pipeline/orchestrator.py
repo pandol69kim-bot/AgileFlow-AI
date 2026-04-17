@@ -33,27 +33,30 @@ class PipelineState(TypedDict):
     errors: list
 
 
+EMPTY_STATE: PipelineState = {
+    "project_id": "",
+    "idea_input": "",
+    "idea_analysis": "",
+    "product_requirements": "",
+    "design_system": "",
+    "wireframes": "",
+    "components": "",
+    "tech_stack": "",
+    "architecture": "",
+    "database_schema": "",
+    "project_structure": "",
+    "frontend_code": {},
+    "backend_code": {},
+    "test_artifacts": {},
+    "deploy_artifacts": {},
+    "final_report": "",
+    "current_step": 0,
+    "errors": [],
+}
+
+
 async def run_pipeline(project_id: str, idea_input: str) -> AsyncGenerator[dict, None]:
-    state: PipelineState = {
-        "project_id": project_id,
-        "idea_input": idea_input,
-        "idea_analysis": "",
-        "product_requirements": "",
-        "design_system": "",
-        "wireframes": "",
-        "components": "",
-        "tech_stack": "",
-        "architecture": "",
-        "database_schema": "",
-        "project_structure": "",
-        "frontend_code": {},
-        "backend_code": {},
-        "test_artifacts": {},
-        "deploy_artifacts": {},
-        "final_report": "",
-        "current_step": 0,
-        "errors": [],
-    }
+    state: PipelineState = {**EMPTY_STATE, "project_id": project_id, "idea_input": idea_input}
 
     # Step 1: Idea Analyst
     yield {"agent": "01_idea_analyst", "status": "running", "step": 1}
