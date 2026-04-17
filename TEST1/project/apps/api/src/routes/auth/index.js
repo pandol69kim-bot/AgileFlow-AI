@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { prisma } from '../../lib/prisma.js';
 import { AppError } from '../../utils/errors.js';
+import { authenticate } from '../../middlewares/authenticate.js';
 
 const registerBody = z.object({
   email: z.string().email(),
@@ -48,5 +49,14 @@ export async function authRoutes(app) {
 
   app.post('/logout', async (req, reply) => {
     return reply.clearCookie('accessToken').send({ data: null });
+  });
+
+  app.get('/me', { preHandler: authenticate }, async (req, reply) => {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { id: true, email: true, name: true },
+    });
+    if (!user) throw new AppError(404, 'NOT_FOUND', 'User not found');
+    return { data: user };
   });
 }

@@ -9,7 +9,10 @@ export const api = axios.create({
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    const message = err.response?.data?.detail ?? err.message;
+    if (err.response?.status === 401 && !window.location.pathname.startsWith('/login')) {
+      window.location.href = '/login';
+    }
+    const message = err.response?.data?.detail ?? err.response?.data?.message ?? err.message;
     return Promise.reject(new Error(message));
   }
 );

@@ -1,6 +1,9 @@
-import { Outlet, Link, useNavigate } from 'react-router-dom';
+import { Outlet, Link } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth.jsx';
 
 export function AppLayout() {
+  const { user, logout } = useAuth();
+
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--color-surface-base)' }}>
       <header
@@ -12,6 +15,15 @@ export function AppLayout() {
         </Link>
         <nav className="flex items-center gap-6 text-sm text-slate-400">
           <Link to="/projects" className="hover:text-slate-200 transition-colors">Projects</Link>
+          {user && (
+            <button
+              type="button"
+              onClick={logout}
+              className="hover:text-slate-200 transition-colors"
+            >
+              {user.name} · 로그아웃
+            </button>
+          )}
         </nav>
       </header>
       <main className="flex-1">

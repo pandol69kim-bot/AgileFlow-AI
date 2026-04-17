@@ -1,0 +1,5 @@
+{"level":30,"time":1776414432448,"pid":20100,"hostname":"PC200","reqId":"req-14","res":{"statusCode":200},"responseTime":4.6068999990820885,"msg":"request completed"}
+{"level":30,"time":1776414435463,"pid":20100,"hostname":"PC200","reqId":"req-15","req":{"method":"GET","url":"/api/v1/projects/5952199d-66bd-41d6-8a7b-dbfafab94f59/artifacts","hostname":"localhost:3001","remoteAddress":"127.0.0.1","remotePort":59530},"msg":"incoming request"}
+{"level":30,"time":1776414435468,"pid":20100,"hostname":"PC200","reqId":"req-15","res":{"statusCode":200},"responseTime":4.746700000017881,"msg":"request completed"}
+{"level":30,"time":1776414437226,"pid":20100,"hostname":"PC200","reqId":"req-16","req":{"method":"GET","url":"/api/v1/projects/5952199d-66bd-41d6-8a7b-dbfafab94f59","hostname":"localhost:3001","remoteAddress":"127.0.0.1","remotePort":59533},"msg":"incoming request"}
+{"level":30,"time":1776414437229,"pid":20100,"hostname":"PC200","reqId":"req-16","res":{"statusCode":200},"responseTime":2.9021000005304813,"msg":"request completed"}
