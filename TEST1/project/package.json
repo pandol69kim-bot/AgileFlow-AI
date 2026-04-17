@@ -1,0 +1,15 @@
+{
+  "name": "agileflow",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "e2e": "turbo run e2e"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0"
+  }
+}

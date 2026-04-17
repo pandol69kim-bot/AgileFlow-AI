@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email     String    @unique @db.VarChar(255)
+  name      String    @db.VarChar(100)
+  password  String
+  createdAt DateTime  @default(now()) @map("created_at")
+  projects  Project[]
+
+  @@map("users")
+}
+
+model Project {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String          @map("user_id") @db.Uuid
+  title          String          @db.VarChar(200)
+  ideaInput      String          @map("idea_input")
+  status         String          @default("pending") @db.VarChar(20)
+  currentStep    Int             @default(0) @map("current_step")
+  checkpointData Json?           @map("checkpoint_data")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  completedAt    DateTime?       @map("completed_at")
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  artifacts      AgentArtifact[]
+  logs           PipelineLog[]
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("projects")
+}
+
+model AgentArtifact {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId String   @map("project_id") @db.Uuid
+  agentName String   @map("agent_name") @db.VarChar(50)
+  filename  String   @db.VarChar(100)
+  content   String
+  status    String   @default("pending") @db.VarChar(20)
+  createdAt DateTime @default(now()) @map("created_at")
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, agentName])
+  @@map("agent_artifacts")
+}
+
+model PipelineLog {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId String   @map("project_id") @db.Uuid
+  agentName String   @map("agent_name") @db.VarChar(50)
+  eventType String   @map("event_type") @db.VarChar(50)
+  message   String?
+  createdAt DateTime @default(now()) @map("created_at")
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+  @@map("pipeline_logs")
+}
