@@ -1,8 +1,9 @@
 const STATUS_CONFIG = {
-  pending:   { icon: '⏳', label: '대기',   className: 'text-slate-500 bg-slate-800/60' },
-  running:   { icon: '⚡', label: '실행중', className: 'text-yellow-400 bg-yellow-900/30 animate-pulse' },
-  completed: { icon: '✅', label: '완료',   className: 'text-emerald-400 bg-emerald-900/30' },
-  failed:    { icon: '❌', label: '실패',   className: 'text-red-400 bg-red-900/30' },
+  pending:   { icon: '⏳', label: '대기',     className: 'text-slate-500 bg-slate-800/60' },
+  running:   { icon: '⚡', label: '실행중',   className: 'text-yellow-400 bg-yellow-900/30 animate-pulse' },
+  completed: { icon: '✅', label: '완료',     className: 'text-emerald-400 bg-emerald-900/30' },
+  failed:    { icon: '❌', label: '실패',     className: 'text-red-400 bg-red-900/30' },
+  skipped:   { icon: '⏭', label: '건너뜀',   className: 'text-slate-400 bg-slate-700/60' },
 };
 
 export function AgentStatusBadge({ status = 'pending' }) {

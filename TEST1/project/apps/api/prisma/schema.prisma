@@ -28,9 +28,9 @@ model Project {
   checkpointData Json?           @map("checkpoint_data")
   createdAt      DateTime        @default(now()) @map("created_at")
   completedAt    DateTime?       @map("completed_at")
-  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   artifacts      AgentArtifact[]
   logs           PipelineLog[]
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt(sort: Desc)])
   @@map("projects")
@@ -46,6 +46,7 @@ model AgentArtifact {
   createdAt DateTime @default(now()) @map("created_at")
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
+  @@unique([projectId, agentName, filename])
   @@index([projectId, agentName])
   @@map("agent_artifacts")
 }

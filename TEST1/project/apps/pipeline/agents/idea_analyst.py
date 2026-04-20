@@ -1,4 +1,4 @@
-from agents.base import get_fast_llm
+from agents.base import get_fast_llm, invoke_with_retry
 from langchain_core.messages import HumanMessage
 
 PROMPT = """당신은 시니어 프로덕트 매니저이자 비즈니스 분석가입니다.
@@ -20,5 +20,5 @@ PROMPT = """당신은 시니어 프로덕트 매니저이자 비즈니스 분석
 async def run_idea_analyst(state: dict) -> dict:
     llm = get_fast_llm()
     prompt = PROMPT.format(idea=state["idea_input"])
-    response = await llm.ainvoke([HumanMessage(content=prompt)])
+    response = await invoke_with_retry(llm, [HumanMessage(content=prompt)])
     return {**state, "idea_analysis": response.content, "current_step": 1}

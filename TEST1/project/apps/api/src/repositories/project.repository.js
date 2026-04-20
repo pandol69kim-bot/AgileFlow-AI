@@ -42,8 +42,32 @@ export const projectRepository = {
     });
   },
 
+  async findArtifactById(id) {
+    return prisma.agentArtifact.findUnique({ where: { id } });
+  },
+
   async findArtifacts(projectId) {
     return prisma.agentArtifact.findMany({
+      where: { projectId },
+      orderBy: { createdAt: 'asc' },
+    });
+  },
+
+  async updateArtifact(artifactId, content) {
+    return prisma.agentArtifact.update({
+      where: { id: artifactId },
+      data: { content },
+    });
+  },
+
+  async saveLog(projectId, { agentName, eventType, message }) {
+    return prisma.pipelineLog.create({
+      data: { projectId, agentName, eventType, message: message ?? null },
+    });
+  },
+
+  async findLogs(projectId) {
+    return prisma.pipelineLog.findMany({
       where: { projectId },
       orderBy: { createdAt: 'asc' },
     });

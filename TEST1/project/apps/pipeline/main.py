@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -64,8 +67,11 @@ async def health():
 async def run(req: RunRequest):
     """전체 파이프라인 NDJSON 스트리밍 실행"""
     async def event_stream():
-        async for event in run_pipeline(req.project_id, req.idea_input):
-            yield json.dumps(event) + "\n"
+        try:
+            async for event in run_pipeline(req.project_id, req.idea_input):
+                yield json.dumps(event) + "\n"
+        except Exception as e:
+            yield json.dumps({"agent": "pipeline", "status": "failed", "error": str(e)}) + "\n"
 
     return StreamingResponse(event_stream(), media_type="application/x-ndjson")
 

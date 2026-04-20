@@ -73,10 +73,12 @@ async def run_step(step: int, state: dict) -> dict:
     elif step == 2:
         return await run_planner(state)
     elif step == 3:
-        d, a = await asyncio.gather(run_designer(state), run_architect(state))
+        d = await run_designer(state)
+        a = await run_architect({**state, **d})
         return {**state, **d, **a}
     elif step == 4:
-        fe, be = await asyncio.gather(run_frontend_dev(state), run_backend_dev(state))
+        fe = await run_frontend_dev(state)
+        be = await run_backend_dev({**state, **fe})
         return {**state, **fe, **be}
     elif step == 5:
         return await run_tester(state)

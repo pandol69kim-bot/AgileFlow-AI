@@ -27,13 +27,14 @@ services:
       context: ./apps/pipeline
       dockerfile: Dockerfile
     ports: ["8000:8000"]
+    env_file:
+      - ./apps/pipeline/.env
     environment:
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-      LANGCHAIN_API_KEY: ${LANGCHAIN_API_KEY}
-      LANGCHAIN_TRACING_V2: "true"
-      LANGCHAIN_PROJECT: "agileflow"
+      LANGCHAIN_TRACING_V2: "false"
     volumes:
+      - ./apps/pipeline:/app
       - /var/run/docker.sock:/var/run/docker.sock
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     depends_on:
       redis:
         condition: service_healthy

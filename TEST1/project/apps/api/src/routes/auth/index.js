@@ -14,8 +14,40 @@ const loginBody = z.object({
   password: z.string(),
 });
 
+const tags = ['Auth'];
+
 export async function authRoutes(app) {
-  app.post('/register', async (req, reply) => {
+  app.post('/register', {
+    schema: {
+      tags,
+      summary: '회원가입',
+      body: {
+        type: 'object',
+        required: ['email', 'name', 'password'],
+        properties: {
+          email: { type: 'string', format: 'email' },
+          name: { type: 'string', minLength: 2, maxLength: 100 },
+          password: { type: 'string', minLength: 8 },
+        },
+      },
+      response: {
+        201: {
+          description: '가입 성공',
+          type: 'object',
+          properties: {
+            data: {
+              type: 'object',
+              properties: {
+                id: { type: 'string' },
+                email: { type: 'string' },
+                name: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
+    },
+  }, async (req, reply) => {
     const { email, name, password } = registerBody.parse(req.body);
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) throw new AppError(409, 'CONFLICT', 'Email already in use');
@@ -31,7 +63,36 @@ export async function authRoutes(app) {
       .send({ data: { id: user.id, email: user.email, name: user.name } });
   });
 
-  app.post('/login', async (req, reply) => {
+  app.post('/login', {
+    schema: {
+      tags,
+      summary: '로그인',
+      body: {
+        type: 'object',
+        required: ['email', 'password'],
+        properties: {
+          email: { type: 'string', format: 'email' },
+          password: { type: 'string' },
+        },
+      },
+      response: {
+        200: {
+          description: '로그인 성공 (accessToken 쿠키 설정)',
+          type: 'object',
+          properties: {
+            data: {
+              type: 'object',
+              properties: {
+                id: { type: 'string' },
+                email: { type: 'string' },
+                name: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
+    },
+  }, async (req, reply) => {
     const { email, password } = loginBody.parse(req.body);
     const user = await prisma.user.findUnique({ where: { email } });
 
@@ -47,11 +108,35 @@ export async function authRoutes(app) {
       .send({ data: { id: user.id, email: user.email, name: user.name } });
   });
 
-  app.post('/logout', async (req, reply) => {
+  app.post('/logout', {
+    schema: { tags, summary: '로그아웃', response: { 200: { type: 'object' } } },
+  }, async (req, reply) => {
     return reply.clearCookie('accessToken').send({ data: null });
   });
 
-  app.get('/me', { preHandler: authenticate }, async (req, reply) => {
+  app.get('/me', {
+    preHandler: authenticate,
+    schema: {
+      tags,
+      summary: '내 정보 조회',
+      security: [{ cookieAuth: [] }],
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            data: {
+              type: 'object',
+              properties: {
+                id: { type: 'string' },
+                email: { type: 'string' },
+                name: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
+    },
+  }, async (req, reply) => {
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
       select: { id: true, email: true, name: true },

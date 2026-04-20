@@ -1,6 +1,6 @@
 import { AgentStatusBadge } from '../../ui/AgentStatusBadge.jsx';
 
-export function AgentStepCard({ step, name, status, artifactFilename, onViewArtifact }) {
+export function AgentStepCard({ step, name, status, artifactFilename, orchestratorStep, onViewArtifact, onSkipStep }) {
   return (
     <div
       className="flex items-center gap-3 p-3 rounded-lg border transition-colors"
@@ -18,6 +18,16 @@ export function AgentStepCard({ step, name, status, artifactFilename, onViewArti
           className="text-xs text-primary-400 hover:text-primary-300 underline shrink-0"
         >
           보기
+        </button>
+      )}
+      {status === 'pending' && onSkipStep && orchestratorStep && (
+        <button
+          type="button"
+          onClick={() => onSkipStep(orchestratorStep)}
+          className="text-xs text-slate-500 hover:text-slate-300 underline shrink-0"
+          title="이 스텝을 건너뜁니다"
+        >
+          건너뛰기
         </button>
       )}
     </div>

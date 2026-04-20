@@ -1,4 +1,4 @@
-from agents.base import get_fast_llm
+from agents.base import get_fast_llm, invoke_with_retry
 from langchain_core.messages import HumanMessage
 
 
@@ -23,7 +23,7 @@ async def run_project_manager(state: dict) -> dict:
 - docker.md, cicd.md, infrastructure.md, monitoring.md
 """
 
-    response = await llm.ainvoke([HumanMessage(content=f"""당신은 시니어 프로젝트 매니저입니다.
+    response = await invoke_with_retry(llm, [HumanMessage(content=f"""당신은 시니어 프로젝트 매니저입니다.
 다음 프로젝트 산출물을 종합하여 최종 리포트를 작성하세요.
 
 {artifacts_summary}

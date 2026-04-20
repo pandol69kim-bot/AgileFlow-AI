@@ -1,4 +1,4 @@
-from agents.base import get_smart_llm
+from agents.base import get_smart_llm, invoke_with_retry
 from langchain_core.messages import HumanMessage
 
 PROMPT = """당신은 10년차 시니어 프로덕트 기획자입니다.
@@ -21,5 +21,5 @@ PROMPT = """당신은 10년차 시니어 프로덕트 기획자입니다.
 async def run_planner(state: dict) -> dict:
     llm = get_smart_llm()
     prompt = PROMPT.format(idea_analysis=state["idea_analysis"])
-    response = await llm.ainvoke([HumanMessage(content=prompt)])
+    response = await invoke_with_retry(llm, [HumanMessage(content=prompt)])
     return {**state, "product_requirements": response.content, "current_step": 2}
