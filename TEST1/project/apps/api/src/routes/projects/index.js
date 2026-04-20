@@ -374,12 +374,7 @@ export async function projectRoutes(app) {
 
     const slug = toSlug(project.title);
 
-    reply.hijack();
-    reply.raw.setHeader('Content-Type', 'application/zip');
-    reply.raw.setHeader('Content-Disposition', `attachment; filename="${slug}.zip"`);
-
     const archive = archiver('zip', { zlib: { level: 9 } });
-    archive.pipe(reply.raw);
 
     archive.append(
       buildIndexMd(project.title, project.ideaInput, artifacts),
@@ -388,9 +383,14 @@ export async function projectRoutes(app) {
 
     for (const a of artifacts) {
       const zipPath = ZIP_PATH_MAP[a.filename] ?? `misc/${a.filename}`;
-      archive.append(a.content, { name: `${slug}/${zipPath}` });
+      archive.append(a.content ?? '', { name: `${slug}/${zipPath}` });
     }
 
-    await archive.finalize();
+    archive.finalize();
+
+    return reply
+      .header('Content-Type', 'application/zip')
+      .header('Content-Disposition', `attachment; filename="${slug}.zip"`)
+      .send(archive);
   });
 }
