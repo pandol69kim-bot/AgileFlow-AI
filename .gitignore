@@ -71,6 +71,8 @@ __pycache__/
 venv/
 ENV/
 env/
+venv/
+myenvv/
 
 .pytest_cache/
 .mypy_cache/
