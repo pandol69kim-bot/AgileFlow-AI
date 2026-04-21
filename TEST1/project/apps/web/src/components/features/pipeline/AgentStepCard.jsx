@@ -1,6 +1,10 @@
 import { AgentStatusBadge } from '../../ui/AgentStatusBadge.jsx';
 
-export function AgentStepCard({ step, name, status, artifactFilename, orchestratorStep, onViewArtifact, onSkipStep }) {
+export function AgentStepCard({ step, name, status, artifactFilename, orchestratorStep, onViewArtifact, onSkipStep, projectStatus }) {
+  const isFailed = projectStatus === 'failed';
+  const isProjectCompleted = projectStatus === 'completed';
+  const canView = artifactFilename && (status === 'completed' || isProjectCompleted);
+
   return (
     <div
       className="flex items-center gap-3 p-3 rounded-lg border transition-colors"
@@ -11,11 +15,12 @@ export function AgentStepCard({ step, name, status, artifactFilename, orchestrat
       </span>
       <span className="flex-1 text-sm text-slate-200 truncate">{name}</span>
       <AgentStatusBadge status={status} />
-      {status === 'completed' && artifactFilename && (
+      {canView && (
         <button
           type="button"
-          onClick={() => onViewArtifact(artifactFilename)}
-          className="text-xs text-primary-400 hover:text-primary-300 underline shrink-0"
+          onClick={isFailed ? undefined : () => onViewArtifact(artifactFilename)}
+          disabled={isFailed}
+          className={`text-xs text-primary-400 underline shrink-0 transition-all ${isFailed ? 'blur-sm pointer-events-none select-none' : 'hover:text-primary-300 cursor-pointer'}`}
         >
           보기
         </button>

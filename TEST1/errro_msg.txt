@@ -1,9 +1,1 @@
-http://localhost:5173/api/v1/projects/22f1bf4e-559f-426f-b06a-ce6064f5ca85/download
-
-
-{
-"statusCode": 500,
-"code": "FST_ERR_REP_INVALID_PAYLOAD_TYPE",
-"error": "Internal Server Error",
-"message": "Attempted to send payload of invalid type 'object'. Expected a string or Buffer."
-}
+http://localhost:5173/api/v1/projects/22f1bf4e-559f-426f-b06a-ce6064f5ca85/download   zip 다운로드 버튼 정상작동 여부 체크 후 수정해줘

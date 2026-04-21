@@ -12,7 +12,9 @@ const AGENTS = [
   { step: 7,    orchestratorStep: 7, name: 'PM 리포트',      key: '09_project_manager', artifact: 'final_report.md' },
 ];
 
-export function PipelineProgressPanel({ agentStatuses = {}, onViewArtifact, onSkipStep }) {
+export function PipelineProgressPanel({ agentStatuses = {}, onViewArtifact, onSkipStep, projectStatus }) {
+  const isFailed = projectStatus === 'failed';
+
   const completed = AGENTS.filter(
     (a) => agentStatuses[a.key] === 'completed' || agentStatuses[a.key] === 'skipped'
   ).length;
@@ -21,13 +23,17 @@ export function PipelineProgressPanel({ agentStatuses = {}, onViewArtifact, onSk
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between mb-1">
-        <span className="text-xs text-slate-400">전체 진행률</span>
-        <span className="text-xs font-mono text-primary-400">{progress}%</span>
+        <span className={`text-xs ${isFailed ? 'text-red-400' : 'text-slate-400'}`}>
+          {isFailed ? '파이프라인 실패' : '전체 진행률'}
+        </span>
+        <span className={`text-xs font-mono ${isFailed ? 'text-red-400' : 'text-primary-400'}`}>
+          {isFailed ? `${completed}/${AGENTS.length} 완료 후 실패` : `${progress}%`}
+        </span>
       </div>
       <div className="h-1 rounded-full mb-3" style={{ backgroundColor: 'var(--color-surface-border)' }}>
         <div
           className="h-full rounded-full transition-all duration-500"
-          style={{ width: `${progress}%`, backgroundColor: 'var(--color-primary-500)' }}
+          style={{ width: `${progress}%`, backgroundColor: isFailed ? '#ef4444' : 'var(--color-primary-500)' }}
         />
       </div>
       {AGENTS.map((agent) => (
@@ -40,6 +46,7 @@ export function PipelineProgressPanel({ agentStatuses = {}, onViewArtifact, onSk
           artifactFilename={agent.artifact}
           onViewArtifact={onViewArtifact}
           onSkipStep={onSkipStep}
+          projectStatus={projectStatus}
         />
       ))}
     </div>

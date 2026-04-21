@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { usePipeline } from '../hooks/usePipeline.js';
 import { PipelineProgressPanel } from '../components/features/pipeline/PipelineProgressPanel.jsx';
@@ -17,6 +18,38 @@ export function PipelinePage() {
 
   const badge = STATUS_BADGE[project?.status] ?? STATUS_BADGE.pending;
 
+  const [downloading, setDownloading] = useState(false);
+
+  async function handleDownload() {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      const res = await fetch(`/api/v1/projects/${projectId}/download`, {
+        credentials: 'include',
+      });
+      if (res.status === 401) throw new Error('세션이 만료되었습니다. 다시 로그인해주세요.');
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        throw new Error(`서버 오류 ${res.status}${body ? ': ' + body.slice(0, 200) : ''}`);
+      }
+      const blob = await res.blob();
+      if (blob.size === 0) throw new Error('서버에서 빈 파일이 반환되었습니다.');
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${project?.title ?? projectId}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      console.error('ZIP 다운로드 오류:', err);
+      alert(`다운로드 오류:\n${err.message}`);
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   return (
     <div className="flex flex-col" style={{ height: 'calc(100vh - 57px)' }}>
       <div
@@ -33,12 +66,14 @@ export function PipelinePage() {
           </span>
         </div>
         {project?.status === 'completed' && (
-          <a
-            href={`${import.meta.env.VITE_API_URL ?? '/api/v1'}/projects/${projectId}/download`}
-            className="text-xs text-primary-400 hover:text-primary-300 underline"
+          <button
+            type="button"
+            onClick={handleDownload}
+            disabled={downloading}
+            className="text-xs text-primary-400 hover:text-primary-300 underline cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            ↓ ZIP 다운로드
-          </a>
+            {downloading ? '다운로드 중...' : '↓ ZIP 다운로드'}
+          </button>
         )}
       </div>
 
@@ -51,6 +86,7 @@ export function PipelinePage() {
             agentStatuses={agentStatuses}
             onViewArtifact={setSelectedArtifact}
             onSkipStep={project?.status === 'running' ? skipStep : null}
+            projectStatus={project?.status}
           />
         </aside>
 

@@ -15,11 +15,16 @@ export function startPipelineWorker() {
       await projectRepository.updateStatus(projectId, 'running');
 
       // Python LangGraph 서버에 파이프라인 실행 요청 (스트리밍)
-      const response = await axios.post(
-        `${pipelineUrl}/run`,
-        { project_id: projectId, idea_input: ideaInput },
-        { responseType: 'stream', timeout: 600_000 }
-      );
+      let response;
+      try {
+        response = await axios.post(
+          `${pipelineUrl}/run`,
+          { project_id: projectId, idea_input: ideaInput },
+          { responseType: 'stream', timeout: 600_000 }
+        );
+      } catch (err) {
+        throw new Error(`파이프라인 서버 연결 실패: ${err.message}`);
+      }
 
       let buffer = '';
       let artifactCount = 0;
