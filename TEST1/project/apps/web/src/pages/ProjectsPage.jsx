@@ -29,6 +29,7 @@ export function ProjectsPage() {
               <div>
                 <p className="text-sm font-medium text-slate-200">{p.title}</p>
                 <p className="text-xs text-slate-500 mt-1 truncate max-w-sm">{p.idea_input}</p>
+                {p.aiLabel && <p className="text-[11px] text-slate-600 mt-1">{p.aiLabel}</p>}
               </div>
               <div className="text-right shrink-0 ml-4">
                 <span className={`text-xs ${p.status === 'completed' ? 'text-emerald-400' : p.status === 'running' ? 'text-yellow-400 animate-pulse' : 'text-slate-500'}`}>

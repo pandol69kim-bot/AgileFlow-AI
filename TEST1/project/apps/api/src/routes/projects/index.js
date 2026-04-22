@@ -1,13 +1,19 @@
 import { z } from 'zod';
+import axios from 'axios';
 import archiver from 'archiver';
 import { authenticate } from '../../middlewares/authenticate.js';
 import { projectService } from '../../services/project.service.js';
 import { redis } from '../../lib/redis.js';
 import { AppError } from '../../utils/errors.js';
 import { buildProjectPackageEntries, toSlug } from '../../utils/projectPackage.js';
+import { AI_PROFILES, AI_PROFILE_IDS, DEFAULT_AI_PROFILE, ensureAiProfile } from '../../constants/aiProfiles.js';
 
-const createProjectBody = z.object({ idea_input: z.string().min(5).max(2000) });
+const createProjectBody = z.object({
+  idea_input: z.string().min(5).max(2000),
+  ai_profile: z.enum(AI_PROFILE_IDS).optional().default(DEFAULT_AI_PROFILE),
+});
 const MAX_PACKAGE_SIZE_BYTES = 25 * 1024 * 1024;
+const pipelineUrl = process.env.PIPELINE_URL ?? 'http://localhost:8000';
 
 const tags = ['Projects'];
 const security = [{ cookieAuth: [] }];
@@ -18,6 +24,9 @@ const projectSchema = {
     id: { type: 'string', format: 'uuid' },
     title: { type: 'string' },
     ideaInput: { type: 'string' },
+    aiProfile: { type: 'string', enum: AI_PROFILE_IDS },
+    aiLabel: { type: 'string' },
+    aiProvider: { type: 'string' },
     status: { type: 'string', enum: ['pending', 'running', 'completed', 'failed'] },
     currentStep: { type: 'integer' },
     createdAt: { type: 'string', format: 'date-time' },
@@ -25,7 +34,61 @@ const projectSchema = {
   },
 };
 
+async function getAiProfileAvailability(aiProfile) {
+  try {
+    const response = await axios.get(`${pipelineUrl}/providers/${aiProfile}/health`, { timeout: 10_000 });
+    return {
+      available: Boolean(response.data?.available),
+      reason: response.data?.reason ?? null,
+    };
+  } catch (error) {
+    return {
+      available: false,
+      reason: error.response?.data?.detail ?? error.message,
+    };
+  }
+}
+
 export async function projectRoutes(app) {
+  app.get('/ai-profiles', {
+    preHandler: authenticate,
+    schema: {
+      tags,
+      summary: '선택 가능한 파이프라인 AI 목록',
+      security,
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            data: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', enum: AI_PROFILE_IDS },
+                  label: { type: 'string' },
+                  description: { type: 'string' },
+                  provider: { type: 'string' },
+                  isDefault: { type: 'boolean' },
+                  available: { type: 'boolean' },
+                  reason: { type: 'string', nullable: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  }, async () => {
+    const profiles = await Promise.all(
+      AI_PROFILES.map(async (profile) => {
+        const availability = await getAiProfileAvailability(profile.id);
+        return { ...profile, ...availability };
+      })
+    );
+    return { data: profiles };
+  });
+
   app.post('/', {
     preHandler: authenticate,
     schema: {
@@ -37,6 +100,7 @@ export async function projectRoutes(app) {
         required: ['idea_input'],
         properties: {
           idea_input: { type: 'string', minLength: 5, maxLength: 2000, description: '아이디어 설명' },
+          ai_profile: { type: 'string', enum: AI_PROFILE_IDS, default: DEFAULT_AI_PROFILE, description: '파이프라인 AI 프로필' },
         },
       },
       response: {
@@ -48,8 +112,16 @@ export async function projectRoutes(app) {
       },
     },
   }, async (req, reply) => {
-    const { idea_input } = createProjectBody.parse(req.body);
-    const project = await projectService.create({ userId: req.user.id, ideaInput: idea_input });
+    const { idea_input, ai_profile } = createProjectBody.parse(req.body);
+    const aiAvailability = await getAiProfileAvailability(ai_profile);
+    if (!aiAvailability.available) {
+      throw new AppError(503, 'AI_PROFILE_UNAVAILABLE', aiAvailability.reason ?? '선택한 AI를 현재 사용할 수 없습니다');
+    }
+    const project = await projectService.create({
+      userId: req.user.id,
+      ideaInput: idea_input,
+      aiProfile: ensureAiProfile(ai_profile),
+    });
     return reply.code(201).send({ data: project });
   });
 
@@ -85,6 +157,33 @@ export async function projectRoutes(app) {
   }, async (req, reply) => {
     const project = await projectService.getById(req.params.id, req.user.id);
     return { data: project };
+  });
+
+  app.delete('/:id', {
+    preHandler: authenticate,
+    schema: {
+      tags,
+      summary: '실패한 프로젝트 삭제',
+      security,
+      params: { type: 'object', properties: { id: { type: 'string', format: 'uuid' } } },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            data: {
+              type: 'object',
+              properties: {
+                projectId: { type: 'string', format: 'uuid' },
+                deleted: { type: 'boolean' },
+              },
+            },
+          },
+        },
+      },
+    },
+  }, async (req, reply) => {
+    const result = await projectService.deleteFailedProject(req.params.id, req.user.id);
+    return { data: result };
   });
 
   app.get('/:id/artifacts', {
@@ -256,6 +355,71 @@ export async function projectRoutes(app) {
       req.user.id,
     );
     return { data: result };
+  });
+
+  app.post('/:id/steps/:step/run', {
+    preHandler: authenticate,
+    schema: {
+      tags,
+      summary: '특정 스텝부터 파이프라인 재실행',
+      security,
+      params: {
+        type: 'object',
+        properties: {
+          id:   { type: 'string', format: 'uuid' },
+          step: { type: 'integer', minimum: 1, maximum: 7 },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            data: {
+              type: 'object',
+              properties: {
+                projectId: { type: 'string' },
+                step:      { type: 'integer' },
+                status:    { type: 'string' },
+              },
+            },
+          },
+        },
+      },
+    },
+  }, async (req, reply) => {
+    const result = await projectService.retryFromStep(
+      req.params.id,
+      Number(req.params.step),
+      req.user.id,
+    );
+    return { data: result };
+  });
+
+  app.get('/:id/failure-reason', {
+    preHandler: authenticate,
+    schema: {
+      tags,
+      summary: '파이프라인 실패 사유 및 해결책 조회',
+      security,
+      params: { type: 'object', properties: { id: { type: 'string', format: 'uuid' } } },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            data: {
+              type: 'object',
+              properties: {
+                reason: { type: 'string', nullable: true },
+                solution: { type: 'string', nullable: true },
+              },
+            },
+          },
+        },
+      },
+    },
+  }, async (req, reply) => {
+    const info = await projectService.getFailureInfo(req.params.id, req.user.id);
+    return { data: info };
   });
 
   app.get('/:id/download', {

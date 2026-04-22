@@ -1,4 +1,4 @@
-from typing import TypedDict, AsyncGenerator
+from typing import TypedDict, AsyncGenerator, Optional
 import asyncio
 import os
 
@@ -13,11 +13,13 @@ from agents.backend_dev import run_backend_dev
 from agents.tester import run_tester
 from agents.deployer import run_deployer
 from agents.project_manager import run_project_manager
+from agents.base import set_current_ai_profile, validate_ai_profile
 
 
 class PipelineState(TypedDict):
     project_id: str
     idea_input: str
+    ai_profile: str
     idea_analysis: str
     product_requirements: str
     design_system: str
@@ -39,6 +41,7 @@ class PipelineState(TypedDict):
 EMPTY_STATE: PipelineState = {
     "project_id": "",
     "idea_input": "",
+    "ai_profile": "claude",
     "idea_analysis": "",
     "product_requirements": "",
     "design_system": "",
@@ -64,13 +67,29 @@ async def _should_skip(r: aioredis.Redis, project_id: str, step: int) -> bool:
     return bool(await r.sismember(f"project:{project_id}:skip_steps", str(step)))
 
 
-async def run_pipeline(project_id: str, idea_input: str) -> AsyncGenerator[dict, None]:
-    state: PipelineState = {**EMPTY_STATE, "project_id": project_id, "idea_input": idea_input}
+async def run_pipeline(
+    project_id: str,
+    idea_input: str,
+    ai_profile: str = "claude",
+    start_step: int = 1,
+    initial_state: Optional[dict] = None,
+) -> AsyncGenerator[dict, None]:
+    resolved_ai_profile = validate_ai_profile(ai_profile)
+    set_current_ai_profile(resolved_ai_profile)
+    state: PipelineState = {**EMPTY_STATE, "project_id": project_id, "idea_input": idea_input, "ai_profile": resolved_ai_profile}
+    # Pre-populate state from previous run artifacts (for step retry)
+    if initial_state:
+        for k, v in initial_state.items():
+            if k in EMPTY_STATE:
+                state[k] = v
+
     r = aioredis.from_url(REDIS_URL, decode_responses=True)
 
     try:
         # Step 1: Idea Analyst
-        if await _should_skip(r, project_id, 1):
+        if start_step > 1:
+            pass  # state pre-populated from initial_state
+        elif await _should_skip(r, project_id, 1):
             yield {"agent": "01_idea_analyst", "status": "skipped", "step": 1,
                    "filename": "idea_analysis_report.md", "content": ""}
         else:
@@ -82,7 +101,9 @@ async def run_pipeline(project_id: str, idea_input: str) -> AsyncGenerator[dict,
             }
 
         # Step 2: Planner
-        if await _should_skip(r, project_id, 2):
+        if start_step > 2:
+            pass
+        elif await _should_skip(r, project_id, 2):
             yield {"agent": "02_planner", "status": "skipped", "step": 2,
                    "filename": "product_requirements.md", "content": ""}
         else:
@@ -94,7 +115,9 @@ async def run_pipeline(project_id: str, idea_input: str) -> AsyncGenerator[dict,
             }
 
         # Step 3: Designer + Architect (병렬)
-        if await _should_skip(r, project_id, 3):
+        if start_step > 3:
+            pass
+        elif await _should_skip(r, project_id, 3):
             yield {"agent": "03_designer", "status": "skipped", "step": 3,
                    "filename": "design_system.md", "content": ""}
             yield {"agent": "04_architect", "status": "skipped", "step": 3,
@@ -133,7 +156,9 @@ async def run_pipeline(project_id: str, idea_input: str) -> AsyncGenerator[dict,
                        "filename": filename, "content": state[content_key]}
 
         # Step 4: Frontend → Backend
-        if await _should_skip(r, project_id, 4):
+        if start_step > 4:
+            pass
+        elif await _should_skip(r, project_id, 4):
             yield {"agent": "05_frontend_dev", "status": "skipped", "step": 4,
                    "filename": "frontend_setup.md", "content": ""}
             yield {"agent": "06_backend_dev", "status": "skipped", "step": 4,
@@ -154,7 +179,9 @@ async def run_pipeline(project_id: str, idea_input: str) -> AsyncGenerator[dict,
                        "filename": filename, "content": content}
 
         # Step 5: Tester
-        if await _should_skip(r, project_id, 5):
+        if start_step > 5:
+            pass
+        elif await _should_skip(r, project_id, 5):
             yield {"agent": "07_tester", "status": "skipped", "step": 5,
                    "filename": "test_strategy.md", "content": ""}
         else:
@@ -165,7 +192,9 @@ async def run_pipeline(project_id: str, idea_input: str) -> AsyncGenerator[dict,
                        "filename": filename, "content": content}
 
         # Step 6: Deployer
-        if await _should_skip(r, project_id, 6):
+        if start_step > 6:
+            pass
+        elif await _should_skip(r, project_id, 6):
             yield {"agent": "08_deployer", "status": "skipped", "step": 6,
                    "filename": "docker.md", "content": ""}
         else:

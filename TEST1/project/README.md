@@ -18,7 +18,11 @@ packages/
 ### 1. 환경 변수 설정
 ```bash
 cp .env.example .env
-# .env 에서 ANTHROPIC_API_KEY, LANGCHAIN_API_KEY 입력
+# .env 에서 사용할 AI 공급자의 키를 입력
+# Claude: ANTHROPIC_API_KEY
+# OpenAI: OPENAI_API_KEY
+# Gemini: GOOGLE_API_KEY
+# 공통 추적용: LANGCHAIN_API_KEY
 ```
 
 ### 2. 인프라 실행
@@ -67,3 +71,11 @@ npm run dev
 | 데이터베이스 | PostgreSQL + Redis |
 | 작업 큐 | BullMQ |
 | 트레이싱 | LangSmith |
+
+## 선택 가능한 파이프라인 AI
+
+- Claude: Anthropic Claude Sonnet 4.6 + Haiku 4.5
+- GPT-4.1: OpenAI GPT-4.1 + GPT-4.1 mini
+- Gemini 2.5: Google Gemini 2.5 Pro + Flash
+
+파이프라인 시작 화면에서 AI를 선택할 수 있고, 실패 후 스텝 재실행 시에도 동일한 AI 설정이 유지됩니다.

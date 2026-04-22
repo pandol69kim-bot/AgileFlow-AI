@@ -12,7 +12,7 @@ const AGENTS = [
   { step: 7,    orchestratorStep: 7, name: 'PM 리포트',      key: '09_project_manager', artifact: 'final_report.md' },
 ];
 
-export function PipelineProgressPanel({ agentStatuses = {}, onViewArtifact, onSkipStep, projectStatus }) {
+export function PipelineProgressPanel({ agentStatuses = {}, onViewArtifact, onSkipStep, onRetryStep, projectStatus }) {
   const isFailed = projectStatus === 'failed';
 
   const completed = AGENTS.filter(
@@ -46,6 +46,7 @@ export function PipelineProgressPanel({ agentStatuses = {}, onViewArtifact, onSk
           artifactFilename={agent.artifact}
           onViewArtifact={onViewArtifact}
           onSkipStep={onSkipStep}
+          onRetryStep={onRetryStep}
           projectStatus={projectStatus}
         />
       ))}

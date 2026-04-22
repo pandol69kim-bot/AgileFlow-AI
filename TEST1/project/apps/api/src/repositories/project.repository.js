@@ -1,9 +1,9 @@
 import { prisma } from '../lib/prisma.js';
 
 export const projectRepository = {
-  async create({ userId, title, ideaInput }) {
+  async create({ userId, title, ideaInput, checkpointData }) {
     return prisma.project.create({
-      data: { userId, title, ideaInput },
+      data: { userId, title, ideaInput, checkpointData },
     });
   },
 
@@ -16,6 +16,10 @@ export const projectRepository = {
       where: { userId },
       orderBy: { createdAt: 'desc' },
     });
+  },
+
+  async deleteById(id) {
+    return prisma.project.delete({ where: { id } });
   },
 
   async updateStatus(id, status) {

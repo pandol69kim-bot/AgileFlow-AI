@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
 import { Button } from '../components/ui/Button.jsx';
 
+const DEFAULT_AI_PROFILE = 'claude';
+
 export function HomePage() {
   const [idea, setIdea] = useState('');
+  const [aiProfile, setAiProfile] = useState(DEFAULT_AI_PROFILE);
   const navigate = useNavigate();
 
   const { data: recentProjects } = useQuery({
@@ -13,8 +16,24 @@ export function HomePage() {
     queryFn: () => api.get('/projects').then((r) => r.data.data),
   });
 
+  const { data: aiProfiles = [] } = useQuery({
+    queryKey: ['ai-profiles'],
+    queryFn: () => api.get('/projects/ai-profiles').then((r) => r.data.data),
+  });
+
+  useEffect(() => {
+    if (!aiProfiles.length) return;
+    const selectedExists = aiProfiles.some((profile) => profile.id === aiProfile);
+    if (selectedExists) return;
+    const fallback = aiProfiles.find((profile) => profile.isDefault)?.id ?? DEFAULT_AI_PROFILE;
+    setAiProfile(fallback);
+  }, [aiProfile, aiProfiles]);
+
   const startPipeline = useMutation({
-    mutationFn: (ideaText) => api.post('/projects', { idea_input: ideaText }),
+    mutationFn: ({ ideaText, selectedAiProfile }) => api.post('/projects', {
+      idea_input: ideaText,
+      ai_profile: selectedAiProfile,
+    }),
     onSuccess: (res) => navigate(`/pipeline/${res.data.data.id}`),
   });
 
@@ -38,7 +57,7 @@ export function HomePage() {
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey && idea.trim()) {
                 e.preventDefault();
-                startPipeline.mutate(idea.trim());
+                startPipeline.mutate({ ideaText: idea.trim(), selectedAiProfile: aiProfile });
               }
             }}
             placeholder="예: 반려동물 건강관리 앱&#10;예: 팀 일정 관리 SaaS&#10;예: 중고책 거래 플랫폼"
@@ -50,12 +69,45 @@ export function HomePage() {
               border: '1px solid var(--color-surface-border)',
             }}
           />
+          <div className="mt-4">
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm text-slate-400">파이프라인 AI 선택</label>
+              <span className="text-xs text-slate-600">실패 후 재시도에도 같은 AI를 유지합니다</span>
+            </div>
+            <div className="grid gap-2 md:grid-cols-3">
+              {aiProfiles.map((profile) => {
+                const selected = aiProfile === profile.id;
+                return (
+                  <button
+                    key={profile.id}
+                    type="button"
+                    disabled={!profile.available}
+                    onClick={() => setAiProfile(profile.id)}
+                    className="rounded-xl border p-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                    style={{
+                      borderColor: selected ? 'var(--color-primary-500)' : 'var(--color-surface-border)',
+                      backgroundColor: selected ? 'rgba(56, 189, 248, 0.10)' : 'var(--color-surface-overlay)',
+                    }}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`text-sm font-semibold ${selected ? 'text-sky-300' : 'text-slate-200'}`}>{profile.label}</span>
+                      <span className="text-[10px] uppercase tracking-wide text-slate-500">{profile.provider}</span>
+                    </div>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-500">{profile.description}</p>
+                    {!profile.available && (
+                      <p className="mt-2 text-[11px] text-amber-400">현재 사용 불가: {profile.reason ?? '설정 필요'}</p>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           <div className="flex justify-between items-center mt-3">
             <span className="text-xs text-slate-600">Shift+Enter 줄바꿈 · Enter 실행</span>
             <Button
               disabled={!idea.trim()}
               isLoading={startPipeline.isPending}
-              onClick={() => startPipeline.mutate(idea.trim())}
+              onClick={() => startPipeline.mutate({ ideaText: idea.trim(), selectedAiProfile: aiProfile })}
             >
               ▶ 파이프라인 시작
             </Button>
@@ -74,7 +126,10 @@ export function HomePage() {
                   className="flex items-center justify-between px-4 py-3 rounded-lg border text-left hover:bg-surface-overlay transition-colors"
                   style={{ borderColor: 'var(--color-surface-border)', backgroundColor: 'var(--color-surface-raised)' }}
                 >
-                  <span className="text-sm text-slate-300 truncate">{p.title}</span>
+                  <div className="min-w-0">
+                    <span className="text-sm text-slate-300 truncate block">{p.title}</span>
+                    {p.aiLabel && <span className="text-[11px] text-slate-500 mt-1 block">{p.aiLabel}</span>}
+                  </div>
                   <span className={`text-xs ml-3 shrink-0 ${p.status === 'completed' ? 'text-emerald-400' : p.status === 'running' ? 'text-yellow-400' : 'text-slate-500'}`}>
                     {p.status === 'completed' ? '✅ 완료' : p.status === 'running' ? '⚡ 실행중' : p.status}
                   </span>

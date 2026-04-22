@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { usePipeline } from '../hooks/usePipeline.js';
 import { PipelineProgressPanel } from '../components/features/pipeline/PipelineProgressPanel.jsx';
 import { ArtifactViewer } from '../components/features/artifacts/ArtifactViewer.jsx';
@@ -13,12 +13,14 @@ const STATUS_BADGE = {
 
 export function PipelinePage() {
   const { projectId } = useParams();
-  const { project, agentStatuses, selectedArtifact, setSelectedArtifact, updateArtifact, skipStep } =
+  const navigate = useNavigate();
+  const { project, agentStatuses, selectedArtifact, setSelectedArtifact, updateArtifact, skipStep, retryStep, deleteProject, failureReason, failureSolution } =
     usePipeline(projectId);
 
   const badge = STATUS_BADGE[project?.status] ?? STATUS_BADGE.pending;
 
   const [downloading, setDownloading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   async function handleDownload() {
     if (downloading) return;
@@ -50,6 +52,24 @@ export function PipelinePage() {
     }
   }
 
+  async function handleDelete() {
+    if (deleting || project?.status !== 'failed') return;
+
+    const confirmed = window.confirm('실패한 프로젝트를 삭제할까요? 관련 산출물과 로그도 함께 삭제됩니다.');
+    if (!confirmed) return;
+
+    setDeleting(true);
+    try {
+      await deleteProject();
+      navigate('/projects');
+    } catch (err) {
+      console.error('프로젝트 삭제 오류:', err);
+      alert(`삭제 오류:\n${err.message}`);
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
     <div className="flex flex-col" style={{ height: 'calc(100vh - 57px)' }}>
       <div
@@ -60,21 +80,36 @@ export function PipelinePage() {
           <div>
             <h2 className="text-sm font-semibold text-slate-200">{project?.title ?? '파이프라인 실행 중...'}</h2>
             <p className="text-xs text-slate-500 font-mono mt-0.5">{project?.idea_input}</p>
+            {project?.aiLabel && (
+              <p className="text-[11px] text-slate-600 mt-1">선택 AI: {project.aiLabel}</p>
+            )}
           </div>
           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${badge.cls}`}>
             {badge.label}
           </span>
         </div>
-        {project?.status === 'completed' && (
-          <button
-            type="button"
-            onClick={handleDownload}
-            disabled={downloading}
-            className="text-xs text-primary-400 hover:text-primary-300 underline cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {downloading ? '다운로드 중...' : '↓ ZIP 다운로드'}
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {project?.status === 'failed' && (
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting}
+              className="text-xs text-red-400 hover:text-red-300 underline cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {deleting ? '삭제 중...' : '프로젝트 삭제'}
+            </button>
+          )}
+          {project?.status === 'completed' && (
+            <button
+              type="button"
+              onClick={handleDownload}
+              disabled={downloading}
+              className="text-xs text-primary-400 hover:text-primary-300 underline cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {downloading ? '다운로드 중...' : '↓ ZIP 다운로드'}
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-1 overflow-hidden">
@@ -86,15 +121,54 @@ export function PipelinePage() {
             agentStatuses={agentStatuses}
             onViewArtifact={setSelectedArtifact}
             onSkipStep={project?.status === 'running' ? skipStep : null}
+            onRetryStep={project?.status === 'failed' ? retryStep : null}
             projectStatus={project?.status}
           />
         </aside>
 
         <main className="flex-1 px-6 pb-6 overflow-y-auto">
-          <ArtifactViewer
-            artifact={selectedArtifact}
-            onSave={updateArtifact}
-          />
+          {!selectedArtifact && project?.status === 'failed' && failureReason ? (
+            <div className="max-w-3xl mx-auto pt-6 flex flex-col gap-4">
+              <div
+                className="rounded-lg border p-5"
+                style={{ borderColor: '#7f1d1d', backgroundColor: '#1c0a0a' }}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-red-400 text-sm font-semibold">❌ 파이프라인 실패 사유</span>
+                </div>
+                <pre
+                  className="text-red-300 text-xs font-mono whitespace-pre-wrap break-all leading-relaxed"
+                  style={{ maxHeight: '40vh', overflowY: 'auto' }}
+                >
+                  {failureReason}
+                </pre>
+              </div>
+              {failureSolution && (
+                <div
+                  className="rounded-lg border p-5"
+                  style={{ borderColor: '#1e3a5f', backgroundColor: '#0a1628' }}
+                >
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-blue-400 text-sm font-semibold">💡 해결책</span>
+                  </div>
+                  <pre
+                    className="text-blue-200 text-xs font-mono whitespace-pre-wrap break-words leading-relaxed"
+                    style={{ maxHeight: '40vh', overflowY: 'auto' }}
+                  >
+                    {failureSolution}
+                  </pre>
+                </div>
+              )}
+              {!failureSolution && (
+                <div className="text-slate-500 text-xs text-center py-2">해결책 분석 중...</div>
+              )}
+            </div>
+          ) : (
+            <ArtifactViewer
+              artifact={selectedArtifact}
+              onSave={updateArtifact}
+            />
+          )}
         </main>
       </div>
     </div>
