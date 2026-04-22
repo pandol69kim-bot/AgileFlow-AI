@@ -60,7 +60,7 @@ EMPTY_STATE: PipelineState = {
     "errors": [],
 }
 
-REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379")
+REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379")
 
 
 async def _should_skip(r: aioredis.Redis, project_id: str, step: int) -> bool:

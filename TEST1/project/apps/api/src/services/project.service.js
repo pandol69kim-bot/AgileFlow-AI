@@ -48,10 +48,20 @@ export const projectService = {
     return projects.map(normalizeProject);
   },
 
+  async cancelPipeline(projectId, userId) {
+    const project = await this.getById(projectId, userId);
+    if (project.status !== 'running') {
+      throw new AppError(409, 'CONFLICT', '실행 중인 파이프라인만 취소할 수 있습니다');
+    }
+    // 워커가 2초 내 폴링으로 감지 후 스트림을 중단함
+    await redis.set(`project:${projectId}:cancel`, '1', 'EX', 60);
+    return { projectId, cancelling: true };
+  },
+
   async deleteFailedProject(projectId, userId) {
     const project = await this.getById(projectId, userId);
-    if (project.status !== 'failed') {
-      throw new AppError(409, 'CONFLICT', '실패한 프로젝트만 삭제할 수 있습니다');
+    if (project.status !== 'failed' && project.status !== 'cancelled') {
+      throw new AppError(409, 'CONFLICT', '실패하거나 취소된 프로젝트만 삭제할 수 있습니다');
     }
 
     const jobs = await pipelineQueue.getJobs(['waiting', 'delayed', 'active']);

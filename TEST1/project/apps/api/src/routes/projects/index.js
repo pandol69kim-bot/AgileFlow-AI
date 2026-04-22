@@ -27,7 +27,7 @@ const projectSchema = {
     aiProfile: { type: 'string', enum: AI_PROFILE_IDS },
     aiLabel: { type: 'string' },
     aiProvider: { type: 'string' },
-    status: { type: 'string', enum: ['pending', 'running', 'completed', 'failed'] },
+    status: { type: 'string', enum: ['pending', 'running', 'completed', 'failed', 'cancelled'] },
     currentStep: { type: 'integer' },
     createdAt: { type: 'string', format: 'date-time' },
     completedAt: { type: 'string', nullable: true },
@@ -317,6 +317,33 @@ export async function projectRoutes(app) {
       req.user.id,
     );
     return { data: artifact };
+  });
+
+  app.post('/:id/cancel', {
+    preHandler: authenticate,
+    schema: {
+      tags,
+      summary: '실행 중인 파이프라인 취소',
+      security,
+      params: { type: 'object', properties: { id: { type: 'string', format: 'uuid' } } },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            data: {
+              type: 'object',
+              properties: {
+                projectId: { type: 'string', format: 'uuid' },
+                cancelling: { type: 'boolean' },
+              },
+            },
+          },
+        },
+      },
+    },
+  }, async (req, reply) => {
+    const result = await projectService.cancelPipeline(req.params.id, req.user.id);
+    return { data: result };
   });
 
   app.post('/:id/steps/:step/skip', {

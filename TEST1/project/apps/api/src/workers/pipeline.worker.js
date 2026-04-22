@@ -113,6 +113,8 @@ export async function consumePipelineStream(stream, handlers) {
   return { artifactCount, failureError, sawSolution };
 }
 
+const CANCEL_SENTINEL = '__CANCELLED__';
+
 export function startPipelineWorker() {
   const worker = new Worker(
     'pipeline',
@@ -120,77 +122,99 @@ export function startPipelineWorker() {
       const { projectId, ideaInput, startStep = 1, jobType, aiProfile } = job.data;
       await projectRepository.updateStatus(projectId, 'running');
 
-      // Python LangGraph 서버에 파이프라인 실행 요청 (스트리밍)
-      let response;
-      const axiosOpts = {
-        responseType: 'stream',
-        timeout: 600_000,
-        maxBodyLength: Infinity,
-        maxContentLength: Infinity,
-        httpAgent: pipelineAgent,
-      };
+      const abortController = new AbortController();
+      let cancelCheckInterval;
 
       try {
-        if (jobType === 'retry-from-step' && startStep > 1) {
-          const artifacts = await projectRepository.findArtifacts(projectId);
-          const fullState = reconstructState(artifacts);
-          const requiredFields = STEP_PREREQ_FIELDS[startStep] ?? [];
-          const initialState = Object.fromEntries(
-            Object.entries(fullState).filter(([k]) => requiredFields.includes(k))
-          );
-          response = await axios.post(
-            `${pipelineUrl}/run/from/${startStep}`,
-            { project_id: projectId, idea_input: ideaInput, initial_state: initialState, ai_profile: aiProfile },
-            axiosOpts
-          );
-        } else {
-          response = await axios.post(
-            `${pipelineUrl}/run`,
-            { project_id: projectId, idea_input: ideaInput, ai_profile: aiProfile },
-            axiosOpts
-          );
-        }
-      } catch (err) {
-        throw new Error(`파이프라인 서버 연결 실패: ${err.message}`);
-      }
+        // Redis cancel 플래그를 2초마다 폴링 — 감지 시 스트림 강제 중단
+        cancelCheckInterval = setInterval(async () => {
+          try {
+            const flag = await redis.get(`project:${projectId}:cancel`);
+            if (flag) {
+              clearInterval(cancelCheckInterval);
+              abortController.abort();
+            }
+          } catch { /* Redis 일시적 오류 무시 */ }
+        }, 2000);
 
-      const { artifactCount, failureError } = await consumePipelineStream(response.data, {
-        onEvent: async (event) => {
-          await redis.publish(`project:${projectId}:events`, JSON.stringify(event));
+        const axiosOpts = {
+          responseType: 'stream',
+          timeout: 600_000,
+          maxBodyLength: Infinity,
+          maxContentLength: Infinity,
+          httpAgent: pipelineAgent,
+          signal: abortController.signal,
+        };
 
-          if (event.agent && event.status) {
-            await projectRepository.saveLog(projectId, {
-              agentName: event.agent,
-              eventType: event.status,
-              message: event.content ?? event.error ?? event.filename ?? null,
-            });
+        let response;
+        try {
+          if (jobType === 'retry-from-step' && startStep > 1) {
+            const artifacts = await projectRepository.findArtifacts(projectId);
+            const fullState = reconstructState(artifacts);
+            const requiredFields = STEP_PREREQ_FIELDS[startStep] ?? [];
+            const initialState = Object.fromEntries(
+              Object.entries(fullState).filter(([k]) => requiredFields.includes(k))
+            );
+            response = await axios.post(
+              `${pipelineUrl}/run/from/${startStep}`,
+              { project_id: projectId, idea_input: ideaInput, initial_state: initialState, ai_profile: aiProfile },
+              axiosOpts
+            );
+          } else {
+            response = await axios.post(
+              `${pipelineUrl}/run`,
+              { project_id: projectId, idea_input: ideaInput, ai_profile: aiProfile },
+              axiosOpts
+            );
           }
-        },
-        onArtifact: async (event) => {
-          await projectRepository.saveArtifact(projectId, event);
-        },
-        onStep: async (step) => {
-          await projectRepository.updateStep(projectId, step);
-        },
-        onMalformedLine: async (msg) => {
-          console.error(`[pipeline:${projectId}] non-JSON line: ${msg}`);
-          await projectRepository.saveLog(projectId, {
-            agentName: 'pipeline',
-            eventType: 'error',
-            message: msg,
-          });
-        },
-      });
+        } catch (err) {
+          if (err.code === 'ERR_CANCELED') throw new Error(CANCEL_SENTINEL);
+          throw new Error(`파이프라인 서버 연결 실패: ${err.message}`);
+        }
 
-      if (failureError) {
-        throw new Error(failureError);
+        let artifactCount, failureError;
+        try {
+          ({ artifactCount, failureError } = await consumePipelineStream(response.data, {
+            onEvent: async (event) => {
+              await redis.publish(`project:${projectId}:events`, JSON.stringify(event));
+              if (event.agent && event.status) {
+                await projectRepository.saveLog(projectId, {
+                  agentName: event.agent,
+                  eventType: event.status,
+                  message: event.content ?? event.error ?? event.filename ?? null,
+                });
+              }
+            },
+            onArtifact: async (event) => {
+              await projectRepository.saveArtifact(projectId, event);
+            },
+            onStep: async (step) => {
+              await projectRepository.updateStep(projectId, step);
+            },
+            onMalformedLine: async (msg) => {
+              console.error(`[pipeline:${projectId}] non-JSON line: ${msg}`);
+              await projectRepository.saveLog(projectId, {
+                agentName: 'pipeline',
+                eventType: 'error',
+                message: msg,
+              });
+            },
+          }));
+        } catch (err) {
+          if (err.code === 'ERR_CANCELED' || err.name === 'AbortError') throw new Error(CANCEL_SENTINEL);
+          throw err;
+        }
+
+        if (failureError) throw new Error(failureError);
+        if (artifactCount === 0 && startStep === 1) {
+          throw new Error('Pipeline completed but produced no artifacts — check pipeline server logs');
+        }
+
+        await projectRepository.updateStatus(projectId, 'completed');
+      } finally {
+        clearInterval(cancelCheckInterval);
+        await redis.del(`project:${projectId}:cancel`).catch(() => {});
       }
-
-      if (artifactCount === 0 && startStep === 1) {
-        throw new Error('Pipeline completed but produced no artifacts — check pipeline server logs');
-      }
-
-      await projectRepository.updateStatus(projectId, 'completed');
     },
     {
       connection: redis,
@@ -199,15 +223,18 @@ export function startPipelineWorker() {
   );
 
   worker.on('failed', async (job, err) => {
-    if (job) {
-      await projectRepository.updateStatus(job.data.projectId, 'failed');
-      await projectRepository.saveLog(job.data.projectId, {
-        agentName: 'pipeline',
-        eventType: 'failed',
-        message: err.message,
-      });
-    }
-    console.error('Pipeline job failed:', err.message);
+    if (!job) return;
+    const { projectId } = job.data;
+    const isCancelled = err.message === CANCEL_SENTINEL;
+
+    await projectRepository.updateStatus(projectId, isCancelled ? 'cancelled' : 'failed');
+    await projectRepository.saveLog(projectId, {
+      agentName: 'pipeline',
+      eventType: isCancelled ? 'cancelled' : 'failed',
+      message: isCancelled ? '사용자가 파이프라인을 취소했습니다' : err.message,
+    });
+
+    if (!isCancelled) console.error('Pipeline job failed:', err.message);
   });
 
   return worker;

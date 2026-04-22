@@ -106,6 +106,11 @@ export function usePipeline(projectId) {
     queryClient.invalidateQueries({ queryKey: ['agent-statuses', projectId] });
   }, [projectId, queryClient]);
 
+  const cancelPipeline = useCallback(async () => {
+    await api.post(`/projects/${projectId}/cancel`);
+    queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+  }, [projectId, queryClient]);
+
   const deleteProject = useCallback(async () => {
     await api.delete(`/projects/${projectId}`);
     queryClient.removeQueries({ queryKey: ['project', projectId] });
@@ -129,6 +134,7 @@ export function usePipeline(projectId) {
     updateArtifact,
     skipStep,
     retryStep,
+    cancelPipeline,
     deleteProject,
     failureReason,
     failureSolution,

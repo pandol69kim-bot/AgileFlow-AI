@@ -5,22 +5,24 @@ import { PipelineProgressPanel } from '../components/features/pipeline/PipelineP
 import { ArtifactViewer } from '../components/features/artifacts/ArtifactViewer.jsx';
 
 const STATUS_BADGE = {
-  pending:   { label: '대기 중',    cls: 'bg-slate-700 text-slate-300' },
-  running:   { label: '실행 중',    cls: 'bg-blue-900 text-blue-300 animate-pulse' },
-  completed: { label: '완료',       cls: 'bg-green-900 text-green-300' },
-  failed:    { label: '실패',       cls: 'bg-red-900 text-red-300' },
+  pending:   { label: '대기 중',  cls: 'bg-slate-700 text-slate-300' },
+  running:   { label: '실행 중',  cls: 'bg-blue-900 text-blue-300 animate-pulse' },
+  completed: { label: '완료',     cls: 'bg-green-900 text-green-300' },
+  failed:    { label: '실패',     cls: 'bg-red-900 text-red-300' },
+  cancelled: { label: '취소됨',   cls: 'bg-orange-900 text-orange-300' },
 };
 
 export function PipelinePage() {
   const { projectId } = useParams();
   const navigate = useNavigate();
-  const { project, agentStatuses, selectedArtifact, setSelectedArtifact, updateArtifact, skipStep, retryStep, deleteProject, failureReason, failureSolution } =
+  const { project, agentStatuses, selectedArtifact, setSelectedArtifact, updateArtifact, skipStep, retryStep, cancelPipeline, deleteProject, failureReason, failureSolution } =
     usePipeline(projectId);
 
   const badge = STATUS_BADGE[project?.status] ?? STATUS_BADGE.pending;
 
   const [downloading, setDownloading] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   async function handleDownload() {
     if (downloading) return;
@@ -52,10 +54,25 @@ export function PipelinePage() {
     }
   }
 
-  async function handleDelete() {
-    if (deleting || project?.status !== 'failed') return;
+  async function handleCancel() {
+    if (cancelling || project?.status !== 'running') return;
+    const confirmed = window.confirm('파이프라인을 취소할까요? 현재 단계까지의 산출물은 유지됩니다.');
+    if (!confirmed) return;
 
-    const confirmed = window.confirm('실패한 프로젝트를 삭제할까요? 관련 산출물과 로그도 함께 삭제됩니다.');
+    setCancelling(true);
+    try {
+      await cancelPipeline();
+    } catch (err) {
+      alert(`취소 오류:\n${err.message}`);
+    } finally {
+      setCancelling(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (deleting || (project?.status !== 'failed' && project?.status !== 'cancelled')) return;
+
+    const confirmed = window.confirm('프로젝트를 삭제할까요? 관련 산출물과 로그도 함께 삭제됩니다.');
     if (!confirmed) return;
 
     setDeleting(true);
@@ -89,7 +106,17 @@ export function PipelinePage() {
           </span>
         </div>
         <div className="flex items-center gap-3">
-          {project?.status === 'failed' && (
+          {project?.status === 'running' && (
+            <button
+              type="button"
+              onClick={handleCancel}
+              disabled={cancelling}
+              className="text-xs text-orange-400 hover:text-orange-300 border border-orange-800 hover:border-orange-600 px-3 py-1 rounded cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {cancelling ? '취소 요청 중...' : '⏹ 실행 취소'}
+            </button>
+          )}
+          {(project?.status === 'failed' || project?.status === 'cancelled') && (
             <button
               type="button"
               onClick={handleDelete}
