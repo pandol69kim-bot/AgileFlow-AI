@@ -17,8 +17,12 @@ const STEP_AGENT_KEYS = {
 
 export function usePipeline(projectId) {
   const queryClient = useQueryClient();
-  const { agentStatuses, updateAgentStatus, selectedArtifactKey, setSelectedArtifact } =
+  const { agentStatuses, updateAgentStatus, selectedArtifactKey, setSelectedArtifact, reset } =
     usePipelineStore();
+
+  useEffect(() => {
+    reset();
+  }, [projectId, reset]);
 
   const { data: project } = useQuery({
     queryKey: ['project', projectId],

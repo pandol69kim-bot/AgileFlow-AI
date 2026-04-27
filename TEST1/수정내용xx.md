@@ -2,6 +2,46 @@
 
 ---
 
+## 2026-04-23
+
+### AgentArtifact unique constraint 미적용 재발 — prisma db push 필요
+
+**프롬프트**
+```
+@TEST1/errro_msg.txt 에러체크
+```
+
+**오류 내용**
+```
+Invalid `prisma.agentArtifact.upsert()` invocation:
+ConnectorError: PostgresError { code: "42P10",
+  message: "there is no unique or exclusion constraint matching the ON CONFLICT specification" }
+```
+
+**원인**
+`schema.prisma`의 `AgentArtifact` 모델에 `@@unique([projectId, agentName, filename])`는 정의되어 있으나, 초기 마이그레이션 SQL(`20260417074747_start_db_test`)에 해당 UNIQUE INDEX가 포함되지 않아 DB에 constraint가 없는 상태. `upsert()`의 `INSERT ... ON CONFLICT (project_id, agent_name, filename)` 구문이 일치하는 unique constraint를 찾지 못해 `42P10` 오류 발생. (#12와 동일 이슈 재발 — DB 초기화 또는 재생성 시 반복 가능)
+
+**수정 방법**
+```bash
+cd TEST1/project/apps/api
+npx prisma migrate dev --name add_agent_artifact_unique_constraint
+# 또는 (마이그레이션 없이 즉시 적용)
+npx prisma db push
+```
+
+**수정 파일**
+| 파일 | 작업 |
+|------|------|
+| DB `agent_artifacts` 테이블 | unique constraint 적용 (코드 변경 없음) |
+
+**확인 방법**
+```bash
+npx prisma db push
+# → "The database is already in sync with the Prisma schema." 출력 확인
+```
+
+---
+
 ## 2026-04-22 (3)
 
 ### 파이프라인 실행 취소 기능 추가
